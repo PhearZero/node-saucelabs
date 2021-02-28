@@ -4,7 +4,7 @@
 
 # Node Sauce Labs [![Build Status](https://travis-ci.org/saucelabs/node-saucelabs.svg?branch=master)](https://travis-ci.org/saucelabs/node-saucelabs)
 
-Wrapper around all Sauce Labs REST APIs for [Node.js](http://nodejs.org/) (v8 or higher) and the browser.
+Wrapper around all Sauce Labs REST APIs for [Node.js](http://nodejs.org/) (v8 or higher) including support for [Sauce Connect Proxy](https://wiki.saucelabs.com/display/DOCS/Sauce+Connect+Proxy) and TypeScript definitions.
 
 ## Install
 
@@ -50,10 +50,17 @@ Default: `false`
 
 ### proxy
 
-If you want to tunnel your API request through a proxy please see the [got proxy docs](https://github.com/sindresorhus/got/blob/master/readme.md#proxies) for more information.
+If you want to tunnel your API request through a proxy please provide your proxy URL.
+
+Type: `string`<br>
+Default: `null`
+
+### headers
+
+If you want to set request headers, as example {'User-Agent': 'node-saucelabs'}
 
 Type: `object`<br>
-Default: `null`
+Default: `{'User-Agent': 'saucelabs/<VERSION> (nodejs <PLATFORM>)'}`
 
 ## Usage
 
@@ -78,21 +85,41 @@ $ sl listJobs $SAUCE_USERNAME --limit 5 --region eu
 You can find all available commands and options with description by calling:
 
 ```sh
-sl --help
+$ sl --help
 # show description for specific command
-sl listJobs --help
+$ sl listJobs --help
 ```
 
 or update the job status by calling:
 
 ```sh
-sl updateJob cb-onboarding 690c5877710c422d8be4c622b40c747f "{\"passed\":false}"
+$ sl updateJob cb-onboarding 690c5877710c422d8be4c622b40c747f "{\"passed\":false}"
 ```
 
 or download a job asset:
 
 ```sh
-sl downloadJobAsset 690c5877710c422d8be4c622b40c747f video.mp4 --filepath ./video.mp4
+$ sl downloadJobAsset 690c5877710c422d8be4c622b40c747f video.mp4 --filepath ./video.mp4
+```
+
+or upload a job asset:
+
+```sh
+$ sl uploadJobAssets 690c5877710c422d8be4c622b40c747f --files ./video.mp4 --files ./log.json
+```
+
+or start Sauce Connect Proxy in EU datacenter:
+
+```sh
+# start Sauce Connect tunnel for eu-central-1 region
+$ sl sc --region eu --tunnel-identifier "my-tunnel"
+# run a specific Sauce Connect version
+$ sl sc --scVersion 4.5.4
+# see all available Sauce Connect parameters via:
+$ sl sc --help
+```
+
+You can see all available Sauce Connect parameters on the [Sauce Labs Wiki Page](https://wiki.saucelabs.com/display/DOCS/Sauce+Connect+Proxy+Command-Line+Quick+Reference+Guide).
 
 ### As NPM Package
 
@@ -108,13 +135,16 @@ import SauceLabs from 'saucelabs';
     // using constructor options
     // const myAccount = new SauceLabs({ user: "YOUR-USER", key: "YOUR-ACCESS-KEY"});
 
+    // get full webdriver url from the client depending on region:
+    console.log(myAccount.webdriverEndpoint) // outputs "https://ondemand.us-west-1.saucelabs.com/"
+
     // get job details of last run job
-    const job = await myAccount.listJobs(
+    const jobs = await myAccount.listJobs(
         process.env.SAUCE_USERNAME,
         { limit: 1, full: true }
     );
 
-    console.log(job);
+    console.log(jobs);
     /**
      * outputs:
      * { jobs:
@@ -149,10 +179,64 @@ import SauceLabs from 'saucelabs';
             breakpointed: null,
             browser: 'googlechrome' } ] }
      */
+
+    /**
+     * start Sauce Connect Proxy
+     */
+    const sc = await myAccount.startSauceConnect({
+        /**
+         * you can pass in a `logger` method to print Sauce Connect log messages
+         */
+        logger: (stdout) => console.log(stdout),
+        /**
+         * see all available parameters here: https://wiki.saucelabs.com/display/DOCS/Sauce+Connect+Proxy+Command-Line+Quick+Reference+Guide
+         * all parameters have to be applied camel cased instead of with hyphens, e.g.
+         * to apply the `--tunnel-identifier` parameter, set:
+         */
+        tunnelIdentifier: 'my-tunnel'
+    })
+
+    // run a test
+    // ...
+
+    // close Sauce Connect
+    await sc.close()
+
+    // upload additional log files and attach it to your Sauce job
+    await myAccount.uploadJobAssets(
+        '76e693dbe6ff4910abb0bc3d752a971e',
+        [
+            // either pass in file names
+            './logs/video.mp4', './logs/log.json',
+            // or file objects
+            {
+                filename: 'myCustomLogFile.json',
+                data: {
+                    someLog: 'data'
+                }
+            }
+        ]
+    )
 })()
 ```
 
 > You may wonder why `listJobs` requires a `username` as first parameter since you've already defined the process.env. The reason for this is that Sauce Labs supports a concept of Team Accounts, so-called sub-accounts, grouped together. As such functions like the mentioned could list jobs not only for the requesting account, but also for the individual team account. Learn more about it [here](https://wiki.saucelabs.com/display/DOCS/Managing+Team+Members+and+Accounts)
+
+### `webdriverEndpoint` property
+
+You can use the `webdriverEndpoint` property of the client to get the full WebDriver endpoint to connect to Sauce Labs, e.g.:
+
+```js
+const myAccount = new SauceLabs({
+    user: "YOUR-USER",
+    key: "YOUR-ACCESS-KEY",
+    region: 'eu' // run in EU datacenter
+});
+
+// get full webdriver url from the client depending on `region` and `headless` option:
+console.log(myAccount.webdriverEndpoint);
+// outputs: "https://ondemand.eu-central-1.saucelabs.com/"
+```
 
 ## Breaking changes from v1 to v2
 
@@ -189,18 +273,6 @@ Below, you can find the list of the mapped method names:
 | getSubAccountList(callback) | ? |
 | getSubAccounts(callback) | ? |
 
-## Test
+---
 
-To run the test suite, first invoke the following command within the repo, installing the development dependencies:
-
-```shell
-npm install
-```
-
-Then run the tests:
-
-```shell
-npm test
-```
-
-> This module was originally created by [Dan Jenkins](https://github.com/danjenkins) with the help of multiple contributors ([Daniel Perez Alvarez](https://github.com/unindented), [Mathieu Sabourin](https://github.com/OniOni), [Michael J Feher](https://github.com/PhearZero), and many more). We would like to thank Dan and all contributors for their support and this beautiful module.
+This module was originally created by [Dan Jenkins](https://github.com/danjenkins) with the help of multiple contributors ([Daniel Perez Alvarez](https://github.com/unindented), [Mathieu Sabourin](https://github.com/OniOni), [Michael J Feher](https://github.com/PhearZero), and many more). We would like to thank Dan and all contributors for their support and this beautiful module.

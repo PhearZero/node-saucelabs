@@ -1,6 +1,5 @@
 import yargs from 'yargs'
-
-import { USAGE, CLI_PARAMS, EPILOG, PROTOCOL_MAP, DEFAULT_OPTIONS } from './constants'
+import { USAGE, CLI_PARAMS, EPILOG, PROTOCOL_MAP, DEFAULT_OPTIONS, SAUCE_VERSION_NOTE } from './constants'
 import { getParameters } from './utils'
 import SauceLabs from './'
 
@@ -8,7 +7,9 @@ export const run = () => {
     let argv = yargs.usage(USAGE)
         .epilog(EPILOG)
         .demandCommand()
+        .commandDir('commands')
         .help()
+        .version(SAUCE_VERSION_NOTE)
 
     for (const [commandName, options] of PROTOCOL_MAP) {
         const params = getParameters(options.description.parameters)
@@ -35,8 +36,8 @@ export const run = () => {
                 yargs.positional(param.name, paramDescription)
             }
         }, async (argv) => {
-            const { user, key, headless, region, proxy } = Object.assign({}, DEFAULT_OPTIONS, argv)
-            const api = new SauceLabs({ user, key, headless, region, proxy })
+            const { user, key, headless, region, proxy, tld } = Object.assign({}, DEFAULT_OPTIONS, argv)
+            const api = new SauceLabs({ user, key, headless, region, proxy, tld })
             const requiredParams = params.filter((p) => p.required).map((p) => argv[p.name])
 
             try {
@@ -55,7 +56,12 @@ export const run = () => {
                 return process.exit(1)
             }
 
-            return api
+            /**
+             * only return for testing purposes
+             */
+            if (process.env.JEST_WORKER_ID) {
+                return api
+            }
         })
     }
 

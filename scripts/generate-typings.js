@@ -4,8 +4,21 @@ const { camelCase } = require('change-case')
 const CodeGen = require('swagger-typescript-codegen').CodeGen
 const prettier = require('prettier')
 
+const {
+    TS_IMPORTS, TS_SAUCELABS_OBJ, TC_SAUCE_CONNECT_CLASS,
+    TC_SAUCE_CONNECT_OBJ, TC_START_SC
+} = require('./constants')
+
 function generateTypingsForApi(file) {
     const swagger = JSON.parse(fs.readFileSync(file, 'UTF-8'))
+
+    if (swagger.swagger !== '2.0') {
+        return console.log(
+            `Specification for ${file} has not the Swagger v2 format.\n` +
+            'TypeScript generation currently is only supported for Swagger v2.0.'
+        )
+    }
+
     const definitions = CodeGen.getTypescriptCode({
         className: 'SauceLabs',
         swagger,
@@ -48,47 +61,26 @@ fs.readdir(path.join(__dirname, '../apis'), (err, files) => {
         throw err
     }
 
-    const regions = Object.keys(require('../src/constants').REGION_MAPPING)
-        .map(key => `"${key}"`)
-        .join(' | ')
-
-    let result = `
-export interface SauceLabsOptions {
-    /**
-     * Your Sauce Labs username.
-     */
-    user: string;
-    /**
-     * Your Sauce Labs access key.
-     */
-    key: string;
-    /**
-     * Your Sauce Labs datacenter region. The following regions are available:
-     *
-     * - us-west-1 (short 'us')
-     * - eu-central-1 (short 'eu')
-     * - us-east-1 (headless)
-     */
-    region?: ${regions};
-    /**
-     * If set to true you are accessing the headless Sauce instances (this discards the region option).
-     */
-    headless?: boolean;
-    /**
-     * If you want to tunnel your API request through a proxy please see the [got proxy docs](https://github.com/sindresorhus/got/blob/master/readme.md#proxies) for more information.
-     */
-    proxy?: object;
-}`
-
-    const methods = files.map((api) => {
-        const typings = generateTypingsForApi('./apis/' + api)
-        result += `\n\n ${typings.defintions}`
-
-        return typings.methods
-    }).join('\n\n')
+    let result = `${TS_IMPORTS}\n${TS_SAUCELABS_OBJ}\n${TC_SAUCE_CONNECT_CLASS}\n${TC_SAUCE_CONNECT_OBJ}`
+    const methods = [
+        TC_START_SC,
+        ...files
+            .map((api) => generateTypingsForApi('./apis/' + api))
+            .filter(Boolean)
+            .map((typings) => {
+                result += `\n\n ${typings.defintions}`
+                return typings.methods
+            })
+    ].join('\n\n')
 
     result += `\n\ndeclare class SauceLabs {\n
-    constructor(options: SauceLabsOptions)\n\n
+    constructor(options: SauceLabsOptions)
+
+    username: string;
+    region: string;
+    tld: string;
+    headless: boolean;
+    webdriverEndpoint: string;\n\n
     ${methods}
 }
 
