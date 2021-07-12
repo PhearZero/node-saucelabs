@@ -2,7 +2,7 @@
     <img src="./assets/trophy-bot.png" alt="Trophy bot" />
 </p>
 
-# Node Sauce Labs [![Build Status](https://travis-ci.org/saucelabs/node-saucelabs.svg?branch=master)](https://travis-ci.org/saucelabs/node-saucelabs)
+# Node Sauce Labs [![Test Changes](https://github.com/saucelabs/node-saucelabs/actions/workflows/test.yml/badge.svg)](https://github.com/saucelabs/node-saucelabs/actions/workflows/test.yml)
 
 Wrapper around all Sauce Labs REST APIs for [Node.js](http://nodejs.org/) (v8 or higher) including support for [Sauce Connect Proxy](https://wiki.saucelabs.com/display/DOCS/Sauce+Connect+Proxy) and TypeScript definitions.
 
@@ -237,41 +237,6 @@ const myAccount = new SauceLabs({
 console.log(myAccount.webdriverEndpoint);
 // outputs: "https://ondemand.eu-central-1.saucelabs.com/"
 ```
-
-## Breaking changes from v1 to v2
-
-Public APIs have changed from v1 to v2. Methods in v1 accepted a `callback` trailing parameter which is no more available with v2, instead all methods now return a Promise which can be `awaited` or `then`'d.
-
-Below, you can find the list of the mapped method names:
-
-| v1 | v2 |
-|----|----|
-| getAccountDetails(callback)   | async getUser(username) |
-| getAccountLimits(callback)   | ? |
-| getUserActivity(callback)   | async getUserActivity(username) |
-| getUserConcurrency(callback) | async getUserConcurrency(username) |
-| getAccountUsage(start, end, callback) | ? |
-| getJobs(callback) | async listJobs(username, { ...options }) // with option: full: true |
-| showJob(id, callback) | async getJob(username, id) |
-| showJobAssets(id, callback) | ? |
-| updateJob(id, data, callback) | async updateJob(username, id, body) |
-| stopJob(id, data, callback) | async stopJob(username, id) |
-| deleteJob(id, callback) | ? |
-| getActiveTunnels(callback) | async listAvailableTunnels(username) |
-| getTunnel(id, callback) | async getTunnel(username, id) |
-| deleteTunnel(id, callback) | async deleteTunnel(username, id) |
-| getServiceStatus(callback) |async getStatus() |
-| getBrowsers(callback) | ? |
-| getAllBrowsers(callback) | async listPlatforms(platform)  // pass "all" |
-| getSeleniumBrowsers(callback) | Selenium-RC no longer supported |
-| getWebDriverBrowsers(callback) | async listPlatforms(platform) // pass "webdriver" |
-| getTestCounter(callback) | ? |
-| updateSubAccount(data, callback) | ? |
-| deleteSubAccount(callback) | ? |
-| createSubAccount(data, callback) | ? |
-| createPublicLink(id, date, useHour, callback) | ? |
-| getSubAccountList(callback) | ? |
-| getSubAccounts(callback) | ? |
 
 ---
 
